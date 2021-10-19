@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Cluster Analytics for Optimal Workspace Convergence
-
-# ## Imports
-
-# In[1]:
-
-
 from sklearn.cluster import AffinityPropagation
 import matplotlib.pyplot as plt
 from itertools import cycle
@@ -17,46 +10,21 @@ import pandas as pd
 import requests
 import os
 
-
-# ## const
-
-# In[2]:
-
+def cost_incentive(xi, xmax):
+    res = xi / xmax
+    if (res < 0.2 or res > 0.8):
+        return res + 0.4
+    else:
+        return res
 
 BASE_DIR = Path(os.getcwd()).resolve().parents[0]
 
-
-# ## Dataset Preprocessing
-# 
-# So far, we have initialized path variables and imported necessary packages to run our cluster analysis. We will further optimize the dataset, add additionally information using Google Maps' Distrance Matrix API and run the AffinityPropagation model to obtain the ideal location for a workspace.
-
-# In[3]:
-
-
 df = pd.read_csv(str(BASE_DIR) + "/data/raw/xtern.csv")
-
-
-# In[4]:
-
-
 print(df.head())
-
-
-# In[5]:
-
 
 origin = df['Address'][0]
 df = df.drop("Type", axis=1).drop(0).drop([6, 7, 8])
-
-
-# In[6]:
-
-
-df.head()
-
-
-# In[7]:
-
+print(df.head())
 
 MAPS_API_KEY = input("enter the maps api key: ")
 res = [] 
@@ -67,36 +35,7 @@ for i in df['Address']:
     res.append(response.json()["rows"][0]["elements"][0]["duration_in_traffic"]["value"]) 
 df['Housing'] = np.array(res)
 
-
-# The output from the above cell is intentionally hidden in order to preserve API key secrecy.
-
-# In[11]:
-
-
-df.head() 
-
-
-# In[13]:
-
-
-## A smaller number represents higher incentive
-def cost_incentive(xi, xmax):
-    res = xi / xmax 
-    if (res < 0.2 or res > 0.8):
-        return res + 0.4
-    else:
-        return res
-
-
-# We define the `cost_incentive` function to map a bell-curve of user incentive to attend an event based on its price. Since values are StandardScaled between [0 -> 1], we add a weight of `0.4` if values exceed hardcoded defined thresholds. 
-# 
-# We crucially define the bell curve for events with a low cost because individuals perceive value with cost - something that is too cheap may be interpreted as not something worth their time, and they are less incentvised to attend the event.
-
-# In[53]:
-
-
-## Eventbrite's Location Search API was deprecated as of Dec 2019.
-# Therefore, temporarily hardcoded information for events around Indianapolis :/
+print(df.head())
 
 # Address, Frequency, Cost, Event, Date
 events = [["Taps and Dolls, 247 S Meridian St, Indianapolis, IN 46225", 1, 10, "Illusions The Drag Queen Show Indianapolis - Drag Queen Dinner Show", "05-07-2022"],
@@ -111,18 +50,6 @@ events = [["Taps and Dolls, 247 S Meridian St, Indianapolis, IN 46225", 1, 10, "
          ["Indianapolis Motor Speedway, Indianapolis, IN", 1, 175, "Indianapolis Racing Award Ceremony", "06-22-2022"],
          ["A Cut Above | Catering | Classes | Events, 12955 Old Meridian St UNIT 104, Carmel, IN 46032", 1, 100, "Pottery Class", "06-28-2022"]]
 
-
-# In[54]:
-
-
-pd.DataFrame(events)
-
-
-# The above cell presents the sample 10-week activities plan for potential events to attend during the internship period.
-
-# In[ ]:
-
-
 res = [] 
 for enum, i in enumerate(events):
     for j in df['Address']:
@@ -133,30 +60,10 @@ for enum, i in enumerate(events):
         res.append(score)
     df[f'EVENT_{enum}'] = np.array(res)
 
-
-# The output from the above cell is intentionally hidden in order to preserve API key secrecy.
-
-# In[36]:
-
-
 t = []
 for j in df[f'Housing']:
     t.append(j * (20 / 70))
 df[f'Housing'] = np.array(t)
-
-
-# The scores are computed as a function of the `cost_incentive` as previously described as well as the frequency within which the trip is made. Therefore, housing is given a greater weightage than any of the events, as they are singular instances, while travelling from home to work is recurring.
-
-# In[37]:
-
-
-df.head()
-
-
-# ## Modelling
-
-# In[50]:
-
 
 X = np.array(df.drop(["Name", "Address"], axis=1))
 af = AffinityPropagation(preference=-50, random_state=0).fit(X)
@@ -166,12 +73,6 @@ labels = af.labels_
 n_clusters_ = len(cluster_centers_indices)
 
 print('Estimated number of clusters: %d' % n_clusters_)
-
-
-# ## Visualization
-
-# In[51]:
-
 
 plt.close('all')
 plt.figure(1)
@@ -189,14 +90,6 @@ for k, col in zip(range(n_clusters_), colors):
 
 plt.title('Estimated number of clusters: %d' % n_clusters_)
 plt.show()
-
-
-# The plotted points closest to the origin represent the optimal locations for co-working spaces. Reading the label map, Industrious Mass Ave is the ideal location for hosting the in-person workign environment.
-
-# ## Model Saving
-
-# In[52]:
-
 
 from joblib import dump, load
 dump(af, 'affinity.joblib') ## saved in the models/ directory in the github repository!
